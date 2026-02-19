@@ -324,98 +324,109 @@ with tab_owner:
 
 # ---------- TAB 3: OPERATOR ----------
 with tab_operator:
-    st.subheader("Housekeeper Dashboard")
+    st.subheader("🧹 Housekeeping Task Queue")
 
-    users_df     = pd.DataFrame(users)
-    operators_df = users_df[users_df["role"] == "operator"] if not users_df.empty else pd.DataFrame()
+    today = date.today()
 
-    if operators_df.empty:
-        st.info("No housekeepers registered yet.")
-    else:
-        op_id = st.selectbox(
-            "Who are you?",
-            operators_df["id"],
-            format_func=lambda i: operators_df[operators_df.id == i]["name"].iloc[0],
-            key="hk_select"
-        )
+    # Build task list for ALL properties (across all operators)
+    task_list = []
+    for prop in properties:
+        prop_bookings = [
+            b for b in bookings
+            if b["property_id"] == prop["id"]
+            and b.get("status") != "cancelled"
+            and b["check_out"] >= today
+        ]
+        prop_bookings.sort(key=lambda b: b["check_in"])
+        next_b = prop_bookings[0] if prop_bookings else None
 
-        assigned_props = [p for p in properties if p["operator_id"] == op_id]
+        is_clean = prop["cleaning_status"] == "clean"
 
-        st.markdown("### Your assigned properties")
-
-        if not assigned_props:
-            st.info("You have no properties assigned to you yet.")
+        if is_clean:
+            tier = 4  # bottom
+        elif next_b is None:
+            tier = 3  # no booking, low urgency
         else:
-            today = date.today()
+            days_until = (next_b["check_in"] - today).days
+            if days_until <= 0:
+                tier = 0  # urgent
+            elif days_until == 1:
+                tier = 1  # soon
+            else:
+                tier = 2  # upcoming
 
-            for prop in assigned_props:
-                prop_bookings = [
-                    b for b in bookings
-                    if b["property_id"] == prop["id"]
-                    and b.get("status") not in ("cancelled",)
-                    and b["check_out"] >= today
-                ]
-                prop_bookings.sort(key=lambda b: b["check_in"])
-                next_booking = prop_bookings[0] if prop_bookings else None
-                urgent = next_booking and (next_booking["check_in"] - today).days <= 1
+        task_list.append({
+            "prop": prop,
+            "next_b": next_b,
+            "tier": tier,
+            "is_clean": is_clean,
+        })
 
-                col1, col2, col3 = st.columns([3, 1.5, 1.5])
-                with col1:
-                    st.markdown(f"**{prop['name']}**")
-                    st.caption(prop["location"])
+    task_list.sort(key=lambda t: t["tier"])
 
-                    if next_booking:
-                        days_until = (next_booking["check_in"] - today).days
-                        if next_booking["check_in"] <= today <= next_booking["check_out"]:
-                            st.info(
-                                f"🏠 **Guest in-house:** {next_booking['guest_name']}  \n"
-                                f"📅 {next_booking['check_in']} → {next_booking['check_out']} "
-                                f"({next_booking['nights']} nights)"
-                            )
-                        elif days_until == 0:
-                            st.warning(
-                                f"⚡ **Check-in TODAY:** {next_booking['guest_name']}  \n"
-                                f"📅 {next_booking['check_in']} → {next_booking['check_out']} "
-                                f"({next_booking['nights']} nights)"
-                            )
-                        elif days_until == 1:
-                            st.warning(
-                                f"⏰ **Check-in TOMORROW:** {next_booking['guest_name']}  \n"
-                                f"📅 {next_booking['check_in']} → {next_booking['check_out']} "
-                                f"({next_booking['nights']} nights)"
-                            )
-                        else:
-                            st.info(
-                                f"📋 **Next booking in {days_until} days:** {next_booking['guest_name']}  \n"
-                                f"📅 {next_booking['check_in']} → {next_booking['check_out']} "
-                                f"({next_booking['nights']} nights)"
-                            )
-                        if len(prop_bookings) > 1:
-                            with st.expander(f"All upcoming bookings ({len(prop_bookings)})"):
-                                for b in prop_bookings:
-                                    st.write(
-                                        f"• {b['guest_name']}: {b['check_in']} → {b['check_out']} "
-                                        f"({b['nights']} nights) — *{b['status']}*"
-                                    )
+    # ---- Summary metrics ----
+    n_urgent  = sum(1 for t in task_list if t["tier"] == 0)
+    n_toclean = sum(1 for t in task_list if not t["is_clean"])
+    n_ready   = sum(1 for t in task_list if t["is_clean"])
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("🔴 Urgent",   n_urgent)
+    m2.metric("🧹 To Clean", n_toclean)
+    m3.metric("🟢 Ready",    n_ready)
+
+    st.markdown("---")
+
+    if not task_list:
+        st.info("No properties registered yet.")
+    else:
+        for task in task_list:
+            prop   = task["prop"]
+            next_b = task["next_b"]
+            tier   = task["tier"]
+
+            # Card header line
+            if tier == 0:
+                label = "🔴 URGENT"
+            elif tier == 1:
+                label = "🟠 SOON"
+            elif tier == 2:
+                label = "🟡 UPCOMING"
+            elif tier == 3:
+                label = "⚪ NO BOOKING"
+            else:
+                label = "🟢 READY"
+
+            card_left, card_right = st.columns([5, 1.5])
+
+            with card_left:
+                st.markdown(f"**{label} &nbsp;·&nbsp; {prop['name']}**")
+                st.caption(prop["location"])
+
+                if next_b:
+                    days_until = (next_b["check_in"] - today).days
+                    if next_b["check_in"] <= today <= next_b["check_out"]:
+                        msg = f"🏠 Guest in-house: **{next_b['guest_name']}**"
+                    elif days_until == 0:
+                        msg = f"⚡ Check-in **TODAY** — {next_b['guest_name']}"
+                    elif days_until == 1:
+                        msg = f"⏰ Check-in **TOMORROW** — {next_b['guest_name']}"
                     else:
-                        st.caption("No upcoming bookings.")
+                        msg = f"📋 Next check-in in **{days_until} days** — {next_b['guest_name']}"
+                    st.write(f"{msg}  \n📅 {next_b['check_in']} → {next_b['check_out']} ({next_b['nights']} nights)")
+                else:
+                    st.caption("No upcoming bookings scheduled.")
 
-                with col2:
-                    if prop["cleaning_status"] == "clean":
-                        st.success("🟢 Clean")
-                    else:
-                        st.error("🔴 Needs Cleaning" + (" ⚠️ Urgent!" if urgent else ""))
+            with card_right:
+                if task["is_clean"]:
+                    if st.button("Mark Dirty", key=f"hk_{prop['id']}"):
+                        db.set_cleaning_status(prop["id"], "needs_cleaning")
+                        st.rerun()
+                else:
+                    if st.button("✓ Mark Clean", key=f"hk_{prop['id']}"):
+                        db.set_cleaning_status(prop["id"], "clean")
+                        st.rerun()
 
-                with col3:
-                    if prop["cleaning_status"] == "clean":
-                        if st.button("Mark as Needs Cleaning", key=f"hk_toggle_{prop['id']}"):
-                            db.set_cleaning_status(prop["id"], "needs_cleaning")
-                            st.rerun()
-                    else:
-                        if st.button("Mark as Clean", key=f"hk_toggle_{prop['id']}"):
-                            db.set_cleaning_status(prop["id"], "clean")
-                            st.rerun()
-                st.markdown("---")
+            st.divider()
 
     st.markdown("### Add new housekeeper")
     new_operator_name = st.text_input("New housekeeper name")
