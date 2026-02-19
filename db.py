@@ -103,6 +103,17 @@ def update_booking_status(booking_id: int, status: str):
     get_client().table("bookings").update({"status": status}).eq("id", booking_id).execute()
 
 
+def update_user_bank(user_id: int, bank_name: str, bank_account: str):
+    get_client().table("users").update({
+        "bank_name": bank_name,
+        "bank_account": bank_account,
+    }).eq("id", user_id).execute()
+
+
+def update_payout_status(booking_id: int, status: str):
+    get_client().table("bookings").update({"payout_status": status}).eq("id", booking_id).execute()
+
+
 # ---------- EXPENSES ----------
 
 def get_expenses() -> list[dict]:

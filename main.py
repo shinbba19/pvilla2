@@ -1,7 +1,7 @@
 import base64
 import streamlit as st
 import pandas as pd
-from datetime import date
+from datetime import date, timedelta
 
 import db
 
@@ -241,6 +241,25 @@ with tab_owner:
     st.markdown("### Existing Owners")
     st.dataframe(owners_df, use_container_width=True)
 
+    st.markdown("### Update owner bank info")
+    if not owners_df.empty:
+        bank_owner_id = st.selectbox(
+            "Select owner",
+            owners_df["id"],
+            format_func=lambda i: owners_df[owners_df.id == i]["name"].iloc[0],
+            key="bank_owner_select"
+        )
+        selected_owner = owners_df[owners_df.id == bank_owner_id].iloc[0]
+        bc1, bc2 = st.columns(2)
+        with bc1:
+            new_bank_name = st.text_input("Bank name", value=selected_owner.get("bank_name", "") or "", key="owner_bank_name")
+        with bc2:
+            new_bank_account = st.text_input("Account number", value=selected_owner.get("bank_account", "") or "", key="owner_bank_account")
+        if st.button("Save bank info", key="save_owner_bank"):
+            db.update_user_bank(int(bank_owner_id), new_bank_name.strip(), new_bank_account.strip())
+            st.success("Bank info saved.")
+            st.rerun()
+
     st.markdown("### Add new owner")
     new_owner_name = st.text_input("New owner name")
     if st.button("Create owner"):
@@ -442,6 +461,28 @@ with tab_operator:
 
             st.divider()
 
+    st.markdown("---")
+    st.markdown("### Update housekeeper bank info")
+    hk_users_df     = pd.DataFrame(users)
+    hk_operators_df = hk_users_df[hk_users_df["role"] == "operator"] if not hk_users_df.empty else pd.DataFrame()
+    if not hk_operators_df.empty:
+        bank_op_id = st.selectbox(
+            "Select housekeeper",
+            hk_operators_df["id"],
+            format_func=lambda i: hk_operators_df[hk_operators_df.id == i]["name"].iloc[0],
+            key="bank_op_select"
+        )
+        selected_op = hk_operators_df[hk_operators_df.id == bank_op_id].iloc[0]
+        hk_bc1, hk_bc2 = st.columns(2)
+        with hk_bc1:
+            hk_bank_name = st.text_input("Bank name", value=selected_op.get("bank_name", "") or "", key="op_bank_name")
+        with hk_bc2:
+            hk_bank_account = st.text_input("Account number", value=selected_op.get("bank_account", "") or "", key="op_bank_account")
+        if st.button("Save bank info", key="save_op_bank"):
+            db.update_user_bank(int(bank_op_id), hk_bank_name.strip(), hk_bank_account.strip())
+            st.success("Bank info saved.")
+            st.rerun()
+
     st.markdown("### Add new housekeeper")
     new_operator_name = st.text_input("New housekeeper name")
     if st.button("Create housekeeper"):
@@ -606,3 +647,76 @@ with tab_payout:
     ]
     if op_rows:
         st.dataframe(pd.DataFrame(op_rows), use_container_width=True)
+
+    # ---- PAYOUT SCHEDULE ----
+    st.markdown("---")
+    st.markdown("### 🏦 Payout Schedule")
+    st.caption("Payouts are issued 1 day after guest check-out.")
+
+    users_lookup = {u["id"]: u for u in users}
+    props_map    = {p["id"]: p for p in properties}
+    today_pay    = date.today()
+
+    due_rows      = []  # checkout passed — payout due or done
+    upcoming_rows = []  # checkout in future — scheduled
+
+    for b in bookings:
+        if b.get("status") == "cancelled":
+            continue
+        prop       = props_map.get(b["property_id"], {})
+        owner      = users_lookup.get(prop.get("owner_id"), {})
+        operator   = users_lookup.get(prop.get("operator_id"), {})
+        payout_date = b["check_out"] + timedelta(days=1)
+        exp        = get_expenses_for_booking(b["id"])
+        _, owner_amt, op_amt, _ = compute_split(b["price_total"], exp)
+
+        row = {
+            "Booking ID":        b["id"],
+            "Property":          prop.get("name", "—"),
+            "Guest":             b["guest_name"],
+            "Check-out":         b["check_out"],
+            "Payout Date":       payout_date,
+            "Owner":             owner.get("name", "—"),
+            "Owner Bank":        f"{owner.get('bank_name','—')} · {owner.get('bank_account','—')}",
+            "Owner Amount (THB)": round(owner_amt, 2),
+            "Operator":          operator.get("name", "—"),
+            "Operator Bank":     f"{operator.get('bank_name','—')} · {operator.get('bank_account','—')}",
+            "Operator Amount (THB)": round(op_amt, 2),
+            "Payout Status":     b.get("payout_status", "pending"),
+        }
+
+        if b["check_out"] < today_pay:
+            due_rows.append(row)
+        else:
+            upcoming_rows.append(row)
+
+    if due_rows:
+        st.markdown("#### Due / Completed Payouts")
+        for row in due_rows:
+            pcol1, pcol2 = st.columns([6, 1.5])
+            with pcol1:
+                status_icon = "✅" if row["Payout Status"] == "paid" else "⏳"
+                st.markdown(
+                    f"{status_icon} **#{row['Booking ID']} — {row['Property']}** &nbsp;·&nbsp; "
+                    f"Guest: {row['Guest']}  \n"
+                    f"Check-out: {row['Check-out']}  →  **Payout date: {row['Payout Date']}**  \n"
+                    f"👑 {row['Owner']} ({row['Owner Bank']}) — **{row['Owner Amount (THB)']:,.0f} THB**  \n"
+                    f"🧑‍🔧 {row['Operator']} ({row['Operator Bank']}) — **{row['Operator Amount (THB)']:,.0f} THB**"
+                )
+            with pcol2:
+                if row["Payout Status"] == "paid":
+                    if st.button("Mark Pending", key=f"pay_undo_{row['Booking ID']}"):
+                        db.update_payout_status(row["Booking ID"], "pending")
+                        st.rerun()
+                else:
+                    if st.button("✓ Mark Paid", key=f"pay_done_{row['Booking ID']}"):
+                        db.update_payout_status(row["Booking ID"], "paid")
+                        st.rerun()
+            st.divider()
+    else:
+        st.info("No past checkouts yet — payouts will appear here after guests check out.")
+
+    if upcoming_rows:
+        st.markdown("#### Upcoming Scheduled Payouts")
+        up_df = pd.DataFrame(upcoming_rows)[["Booking ID","Property","Guest","Check-out","Payout Date","Owner Amount (THB)","Operator Amount (THB)"]]
+        st.dataframe(up_df, use_container_width=True)
