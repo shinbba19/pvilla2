@@ -552,16 +552,74 @@ with tab_operator:
         if not assigned_props:
             st.info("You have no properties assigned to you yet.")
         else:
+            today = date.today()
+            all_bookings = st.session_state.bookings
+
             for prop in assigned_props:
+                # --- Gather upcoming bookings for this property ---
+                prop_bookings = [
+                    b for b in all_bookings
+                    if b["property_id"] == prop["id"]
+                    and b.get("status") not in ("cancelled",)
+                    and b["check_out"] >= today
+                ]
+                prop_bookings.sort(key=lambda b: b["check_in"])
+                next_booking = prop_bookings[0] if prop_bookings else None
+
+                # Determine urgency: check-in is today or tomorrow
+                urgent = next_booking and (next_booking["check_in"] - today).days <= 1
+
                 col1, col2, col3 = st.columns([3, 1.5, 1.5])
                 with col1:
                     st.markdown(f"**{prop['name']}**")
                     st.caption(prop["location"])
+
+                    # --- Next booking info ---
+                    if next_booking:
+                        days_until = (next_booking["check_in"] - today).days
+                        if next_booking["check_in"] <= today <= next_booking["check_out"]:
+                            st.info(
+                                f"🏠 **Guest in-house:** {next_booking['guest_name']}  \n"
+                                f"📅 {next_booking['check_in']} → {next_booking['check_out']} "
+                                f"({next_booking['nights']} nights)"
+                            )
+                        elif days_until == 0:
+                            st.warning(
+                                f"⚡ **Check-in TODAY:** {next_booking['guest_name']}  \n"
+                                f"📅 {next_booking['check_in']} → {next_booking['check_out']} "
+                                f"({next_booking['nights']} nights)"
+                            )
+                        elif days_until == 1:
+                            st.warning(
+                                f"⏰ **Check-in TOMORROW:** {next_booking['guest_name']}  \n"
+                                f"📅 {next_booking['check_in']} → {next_booking['check_out']} "
+                                f"({next_booking['nights']} nights)"
+                            )
+                        else:
+                            st.info(
+                                f"📋 **Next booking in {days_until} days:** {next_booking['guest_name']}  \n"
+                                f"📅 {next_booking['check_in']} → {next_booking['check_out']} "
+                                f"({next_booking['nights']} nights)"
+                            )
+                        # Show all upcoming bookings if more than one
+                        if len(prop_bookings) > 1:
+                            with st.expander(f"All upcoming bookings ({len(prop_bookings)})"):
+                                for b in prop_bookings:
+                                    st.write(
+                                        f"• {b['guest_name']}: {b['check_in']} → {b['check_out']} "
+                                        f"({b['nights']} nights) — *{b['status']}*"
+                                    )
+                    else:
+                        st.caption("No upcoming bookings.")
+
                 with col2:
                     if prop["cleaning_status"] == "clean":
                         st.success("🟢 Clean")
                     else:
-                        st.error("🔴 Needs Cleaning")
+                        if urgent:
+                            st.error("🔴 Needs Cleaning ⚠️ Urgent!")
+                        else:
+                            st.error("🔴 Needs Cleaning")
                 with col3:
                     if prop["cleaning_status"] == "clean":
                         if st.button("Mark as Needs Cleaning", key=f"hk_toggle_{prop['id']}"):
