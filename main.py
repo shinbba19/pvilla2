@@ -241,34 +241,46 @@ with tab_owner:
     st.markdown("### Existing Owners")
     st.dataframe(owners_df, use_container_width=True)
 
-    st.markdown("### Update owner bank info")
-    if not owners_df.empty:
-        bank_owner_id = st.selectbox(
-            "Select owner",
-            owners_df["id"],
-            format_func=lambda i: owners_df[owners_df.id == i]["name"].iloc[0],
-            key="bank_owner_select"
-        )
-        selected_owner = owners_df[owners_df.id == bank_owner_id].iloc[0]
+    st.markdown("### Manage Owners")
+    _ADD_OWNER = "__new__"
+    _owner_opts = (list(owners_df["id"]) if not owners_df.empty else []) + [_ADD_OWNER]
+
+    selected_owner_opt = st.selectbox(
+        "Select owner",
+        _owner_opts,
+        format_func=lambda i: "➕ Add new owner" if i == _ADD_OWNER
+                              else owners_df[owners_df.id == i]["name"].iloc[0],
+        key="manage_owner_select"
+    )
+
+    if selected_owner_opt == _ADD_OWNER:
+        no1, no2, no3 = st.columns([2, 2, 2])
+        with no1:
+            new_owner_name = st.text_input("Name", key="new_owner_name")
+        with no2:
+            new_owner_bank_name = st.text_input("Bank name", key="new_owner_bank_name")
+        with no3:
+            new_owner_bank_account = st.text_input("Account number", key="new_owner_bank_account")
+        if st.button("Create owner"):
+            if new_owner_name.strip():
+                oid = db.add_user(new_owner_name.strip(), "owner")
+                if new_owner_bank_name.strip() or new_owner_bank_account.strip():
+                    db.update_user_bank(int(oid), new_owner_bank_name.strip(), new_owner_bank_account.strip())
+                st.success(f"Owner created with ID: {oid}")
+                st.rerun()
+            else:
+                st.warning("Please enter a name.")
+    else:
+        _sel_owner = owners_df[owners_df.id == selected_owner_opt].iloc[0]
         bc1, bc2 = st.columns(2)
         with bc1:
-            new_bank_name = st.text_input("Bank name", value=selected_owner.get("bank_name", "") or "", key="owner_bank_name")
+            new_bank_name = st.text_input("Bank name", value=_sel_owner.get("bank_name", "") or "", key="owner_bank_name")
         with bc2:
-            new_bank_account = st.text_input("Account number", value=selected_owner.get("bank_account", "") or "", key="owner_bank_account")
+            new_bank_account = st.text_input("Account number", value=_sel_owner.get("bank_account", "") or "", key="owner_bank_account")
         if st.button("Save bank info", key="save_owner_bank"):
-            db.update_user_bank(int(bank_owner_id), new_bank_name.strip(), new_bank_account.strip())
+            db.update_user_bank(int(selected_owner_opt), new_bank_name.strip(), new_bank_account.strip())
             st.success("Bank info saved.")
             st.rerun()
-
-    st.markdown("### Add new owner")
-    new_owner_name = st.text_input("New owner name")
-    if st.button("Create owner"):
-        if new_owner_name.strip():
-            oid = db.add_user(new_owner_name.strip(), "owner")
-            st.success(f"Owner created with ID: {oid}")
-            st.rerun()
-        else:
-            st.warning("Please enter a name.")
 
     st.markdown("---")
     st.markdown("### Add new pool villa")
@@ -462,36 +474,49 @@ with tab_operator:
             st.divider()
 
     st.markdown("---")
-    st.markdown("### Update housekeeper bank info")
+    st.markdown("### Manage Housekeepers")
     hk_users_df     = pd.DataFrame(users)
     hk_operators_df = hk_users_df[hk_users_df["role"] == "operator"] if not hk_users_df.empty else pd.DataFrame()
-    if not hk_operators_df.empty:
-        bank_op_id = st.selectbox(
-            "Select housekeeper",
-            hk_operators_df["id"],
-            format_func=lambda i: hk_operators_df[hk_operators_df.id == i]["name"].iloc[0],
-            key="bank_op_select"
-        )
-        selected_op = hk_operators_df[hk_operators_df.id == bank_op_id].iloc[0]
+
+    _ADD_HK = "__new__"
+    _hk_opts = (list(hk_operators_df["id"]) if not hk_operators_df.empty else []) + [_ADD_HK]
+
+    selected_hk_opt = st.selectbox(
+        "Select housekeeper",
+        _hk_opts,
+        format_func=lambda i: "➕ Add new housekeeper" if i == _ADD_HK
+                              else hk_operators_df[hk_operators_df.id == i]["name"].iloc[0],
+        key="manage_hk_select"
+    )
+
+    if selected_hk_opt == _ADD_HK:
+        nh1, nh2, nh3 = st.columns([2, 2, 2])
+        with nh1:
+            new_operator_name = st.text_input("Name", key="new_hk_name")
+        with nh2:
+            new_hk_bank_name = st.text_input("Bank name", key="new_hk_bank_name")
+        with nh3:
+            new_hk_bank_account = st.text_input("Account number", key="new_hk_bank_account")
+        if st.button("Create housekeeper"):
+            if new_operator_name.strip():
+                oid = db.add_user(new_operator_name.strip(), "operator")
+                if new_hk_bank_name.strip() or new_hk_bank_account.strip():
+                    db.update_user_bank(int(oid), new_hk_bank_name.strip(), new_hk_bank_account.strip())
+                st.success(f"Housekeeper created with ID: {oid}")
+                st.rerun()
+            else:
+                st.warning("Please enter a name.")
+    else:
+        _sel_op = hk_operators_df[hk_operators_df.id == selected_hk_opt].iloc[0]
         hk_bc1, hk_bc2 = st.columns(2)
         with hk_bc1:
-            hk_bank_name = st.text_input("Bank name", value=selected_op.get("bank_name", "") or "", key="op_bank_name")
+            hk_bank_name = st.text_input("Bank name", value=_sel_op.get("bank_name", "") or "", key="op_bank_name")
         with hk_bc2:
-            hk_bank_account = st.text_input("Account number", value=selected_op.get("bank_account", "") or "", key="op_bank_account")
+            hk_bank_account = st.text_input("Account number", value=_sel_op.get("bank_account", "") or "", key="op_bank_account")
         if st.button("Save bank info", key="save_op_bank"):
-            db.update_user_bank(int(bank_op_id), hk_bank_name.strip(), hk_bank_account.strip())
+            db.update_user_bank(int(selected_hk_opt), hk_bank_name.strip(), hk_bank_account.strip())
             st.success("Bank info saved.")
             st.rerun()
-
-    st.markdown("### Add new housekeeper")
-    new_operator_name = st.text_input("New housekeeper name")
-    if st.button("Create housekeeper"):
-        if new_operator_name.strip():
-            oid = db.add_user(new_operator_name.strip(), "operator")
-            st.success(f"Housekeeper created with ID: {oid}")
-            st.rerun()
-        else:
-            st.warning("Please enter a name.")
 
 # ---------- TAB 4: PAYOUT SUMMARY ----------
 with tab_payout:
@@ -522,7 +547,7 @@ with tab_payout:
                 f"Owner {OWNER_SHARE*100:.0f}% (THB)": owner_amt,
                 f"Operator {OPERATOR_SHARE*100:.0f}% (THB)": op_amt,
                 f"Platform {PLATFORM_SHARE*100:.0f}% (THB)": platform_amt,
-                "Status": row["status"],
+                "Status": row.get("payout_status", "pending"),
             })
         payout_df = pd.DataFrame(payout_rows)
 
