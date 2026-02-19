@@ -326,11 +326,25 @@ with tab_owner:
 with tab_operator:
     st.subheader("🧹 Housekeeping Task Queue")
 
+    users_df     = pd.DataFrame(users)
+    operators_df = users_df[users_df["role"] == "operator"] if not users_df.empty else pd.DataFrame()
+
+    if operators_df.empty:
+        st.info("No housekeepers registered yet.")
+        st.stop()
+
+    op_id = st.selectbox(
+        "Who are you?",
+        operators_df["id"],
+        format_func=lambda i: operators_df[operators_df.id == i]["name"].iloc[0],
+        key="hk_select"
+    )
+
     today = date.today()
 
-    # Build task list for ALL properties (across all operators)
+    # Build task list for properties assigned to selected operator
     task_list = []
-    for prop in properties:
+    for prop in [p for p in properties if p["operator_id"] == op_id]:
         prop_bookings = [
             b for b in bookings
             if b["property_id"] == prop["id"]
