@@ -743,26 +743,30 @@ with tab_payout:
 
     if upcoming_rows:
         st.markdown("#### Upcoming Scheduled Payouts")
+        up_table = []
         for row in upcoming_rows:
-            status_icon = "✅" if row["Payout Status"] == "paid" else "⏳"
-            st.markdown(
-                f"**#{row['Booking ID']} — {row['Property']}** &nbsp;·&nbsp; "
-                f"Guest: {row['Guest']}  \n"
-                f"Check-out: {row['Check-out']}  →  **Payout date: {row['Payout Date']}**"
-            )
-            uc1, uc2 = st.columns(2)
-            with uc1:
-                st.markdown(
-                    f"👑 **{row['Owner']}**  \n"
-                    f"🏦 {row['Owner Bank']}  \n"
-                    f"💰 **{row['Owner Amount (THB)']:,.0f} THB**  \n"
-                    f"{status_icon} {row['Payout Status']}"
-                )
-            with uc2:
-                st.markdown(
-                    f"🧑‍🔧 **{row['Operator']}**  \n"
-                    f"🏦 {row['Operator Bank']}  \n"
-                    f"💰 **{row['Operator Amount (THB)']:,.0f} THB**  \n"
-                    f"{status_icon} {row['Payout Status']}"
-                )
-            st.divider()
+            up_table.append({
+                "Booking ID":    row["Booking ID"],
+                "Property":      row["Property"],
+                "Guest":         row["Guest"],
+                "Check-out":     row["Check-out"],
+                "Payout Date":   row["Payout Date"],
+                "Role":          "Owner",
+                "Name":          row["Owner"],
+                "Bank":          row["Owner Bank"],
+                "Amount (THB)":  row["Owner Amount (THB)"],
+                "Status":        row["Payout Status"],
+            })
+            up_table.append({
+                "Booking ID":    row["Booking ID"],
+                "Property":      row["Property"],
+                "Guest":         row["Guest"],
+                "Check-out":     row["Check-out"],
+                "Payout Date":   row["Payout Date"],
+                "Role":          "Operator",
+                "Name":          row["Operator"],
+                "Bank":          row["Operator Bank"],
+                "Amount (THB)":  row["Operator Amount (THB)"],
+                "Status":        row["Payout Status"],
+            })
+        st.dataframe(pd.DataFrame(up_table), use_container_width=True, hide_index=True)
