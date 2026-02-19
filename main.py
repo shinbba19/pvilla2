@@ -700,11 +700,19 @@ with tab_payout:
 
         st.markdown("---")
 
-        # ---- 3. REVENUE BY PROPERTY BAR CHART ----
+        # ---- 3. REVENUE BY PROPERTY BAR CHART (stacked: owner / operator / platform) ----
         st.markdown("### Revenue by Property")
+        owner_col = f"Owner {OWNER_SHARE*100:.0f}% (THB)"
+        op_col = f"Operator {OPERATOR_SHARE*100:.0f}% (THB)"
+        plat_col = f"Platform {PLATFORM_SHARE*100:.0f}% (THB)"
         chart_df = (
-            payout_df.groupby("Property")[["Revenue (THB)", "Net (THB)"]]
+            payout_df.groupby("Property")[[owner_col, op_col, plat_col]]
             .sum()
+            .rename(columns={
+                owner_col: f"Owner ({OWNER_SHARE*100:.0f}%)",
+                op_col: f"Operator ({OPERATOR_SHARE*100:.0f}%)",
+                plat_col: f"Platform ({PLATFORM_SHARE*100:.0f}%)",
+            })
         )
         st.bar_chart(chart_df)
 
