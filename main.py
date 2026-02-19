@@ -254,33 +254,35 @@ with tab_owner:
     )
 
     if selected_owner_opt == _ADD_OWNER:
-        no1, no2, no3 = st.columns([2, 2, 2])
-        with no1:
-            new_owner_name = st.text_input("Name", key="new_owner_name")
-        with no2:
-            new_owner_bank_name = st.text_input("Bank name", key="new_owner_bank_name")
-        with no3:
-            new_owner_bank_account = st.text_input("Account number", key="new_owner_bank_account")
-        if st.button("Create owner"):
-            if new_owner_name.strip():
-                oid = db.add_user(new_owner_name.strip(), "owner")
-                if new_owner_bank_name.strip() or new_owner_bank_account.strip():
-                    db.update_user_bank(int(oid), new_owner_bank_name.strip(), new_owner_bank_account.strip())
-                st.success(f"Owner created with ID: {oid}")
-                st.rerun()
-            else:
-                st.warning("Please enter a name.")
+        with st.form("form_add_owner"):
+            no1, no2, no3 = st.columns([2, 2, 2])
+            with no1:
+                new_owner_name = st.text_input("Name")
+            with no2:
+                new_owner_bank_name = st.text_input("Bank name")
+            with no3:
+                new_owner_bank_account = st.text_input("Account number")
+            if st.form_submit_button("Create owner"):
+                if new_owner_name.strip():
+                    oid = db.add_user(new_owner_name.strip(), "owner")
+                    if new_owner_bank_name.strip() or new_owner_bank_account.strip():
+                        db.update_user_bank(int(oid), new_owner_bank_name.strip(), new_owner_bank_account.strip())
+                    st.success(f"Owner created with ID: {oid}")
+                    st.rerun()
+                else:
+                    st.warning("Please enter a name.")
     else:
         _sel_owner = owners_df[owners_df.id == selected_owner_opt].iloc[0]
-        bc1, bc2 = st.columns(2)
-        with bc1:
-            new_bank_name = st.text_input("Bank name", value=_sel_owner.get("bank_name", "") or "", key="owner_bank_name")
-        with bc2:
-            new_bank_account = st.text_input("Account number", value=_sel_owner.get("bank_account", "") or "", key="owner_bank_account")
-        if st.button("Save bank info", key="save_owner_bank"):
-            db.update_user_bank(int(selected_owner_opt), new_bank_name.strip(), new_bank_account.strip())
-            st.success("Bank info saved.")
-            st.rerun()
+        with st.form("form_update_owner"):
+            bc1, bc2 = st.columns(2)
+            with bc1:
+                new_bank_name = st.text_input("Bank name", value=_sel_owner.get("bank_name", "") or "")
+            with bc2:
+                new_bank_account = st.text_input("Account number", value=_sel_owner.get("bank_account", "") or "")
+            if st.form_submit_button("Save bank info"):
+                db.update_user_bank(int(selected_owner_opt), new_bank_name.strip(), new_bank_account.strip())
+                st.success("Bank info saved.")
+                st.rerun()
 
     st.markdown("---")
     st.markdown("### Add new pool villa")
@@ -490,33 +492,35 @@ with tab_operator:
     )
 
     if selected_hk_opt == _ADD_HK:
-        nh1, nh2, nh3 = st.columns([2, 2, 2])
-        with nh1:
-            new_operator_name = st.text_input("Name", key="new_hk_name")
-        with nh2:
-            new_hk_bank_name = st.text_input("Bank name", key="new_hk_bank_name")
-        with nh3:
-            new_hk_bank_account = st.text_input("Account number", key="new_hk_bank_account")
-        if st.button("Create housekeeper"):
-            if new_operator_name.strip():
-                oid = db.add_user(new_operator_name.strip(), "operator")
-                if new_hk_bank_name.strip() or new_hk_bank_account.strip():
-                    db.update_user_bank(int(oid), new_hk_bank_name.strip(), new_hk_bank_account.strip())
-                st.success(f"Housekeeper created with ID: {oid}")
-                st.rerun()
-            else:
-                st.warning("Please enter a name.")
+        with st.form("form_add_hk"):
+            nh1, nh2, nh3 = st.columns([2, 2, 2])
+            with nh1:
+                new_operator_name = st.text_input("Name")
+            with nh2:
+                new_hk_bank_name = st.text_input("Bank name")
+            with nh3:
+                new_hk_bank_account = st.text_input("Account number")
+            if st.form_submit_button("Create housekeeper"):
+                if new_operator_name.strip():
+                    oid = db.add_user(new_operator_name.strip(), "operator")
+                    if new_hk_bank_name.strip() or new_hk_bank_account.strip():
+                        db.update_user_bank(int(oid), new_hk_bank_name.strip(), new_hk_bank_account.strip())
+                    st.success(f"Housekeeper created with ID: {oid}")
+                    st.rerun()
+                else:
+                    st.warning("Please enter a name.")
     else:
         _sel_op = hk_operators_df[hk_operators_df.id == selected_hk_opt].iloc[0]
-        hk_bc1, hk_bc2 = st.columns(2)
-        with hk_bc1:
-            hk_bank_name = st.text_input("Bank name", value=_sel_op.get("bank_name", "") or "", key="op_bank_name")
-        with hk_bc2:
-            hk_bank_account = st.text_input("Account number", value=_sel_op.get("bank_account", "") or "", key="op_bank_account")
-        if st.button("Save bank info", key="save_op_bank"):
-            db.update_user_bank(int(selected_hk_opt), hk_bank_name.strip(), hk_bank_account.strip())
-            st.success("Bank info saved.")
-            st.rerun()
+        with st.form("form_update_hk"):
+            hk_bc1, hk_bc2 = st.columns(2)
+            with hk_bc1:
+                hk_bank_name = st.text_input("Bank name", value=_sel_op.get("bank_name", "") or "")
+            with hk_bc2:
+                hk_bank_account = st.text_input("Account number", value=_sel_op.get("bank_account", "") or "")
+            if st.form_submit_button("Save bank info"):
+                db.update_user_bank(int(selected_hk_opt), hk_bank_name.strip(), hk_bank_account.strip())
+                st.success("Bank info saved.")
+                st.rerun()
 
 # ---------- TAB 4: PAYOUT SUMMARY ----------
 with tab_payout:
