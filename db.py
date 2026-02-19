@@ -3,6 +3,8 @@ from datetime import date
 import streamlit as st
 from supabase import create_client
 
+DEFAULT_IMAGE = "https://images.pexels.com/photos/261102/pexels-photo-261102.jpeg"
+
 
 @st.cache_resource
 def get_client():
@@ -60,6 +62,10 @@ def add_property(
 
 def set_cleaning_status(property_id: int, status: str):
     get_client().table("properties").update({"cleaning_status": status}).eq("id", property_id).execute()
+
+
+def set_cleaning_photo(property_id: int, photo_url: str):
+    get_client().table("properties").update({"cleaning_photo_url": photo_url}).eq("id", property_id).execute()
 
 
 def update_property_image(property_id: int, image_url: str):

@@ -443,7 +443,7 @@ with tab_operator:
             else:
                 label = "🟢 READY"
 
-            card_left, card_right = st.columns([5, 1.5])
+            card_left, card_right = st.columns([5, 2])
 
             with card_left:
                 st.markdown(f"**{label} &nbsp;·&nbsp; {prop['name']}**")
@@ -463,13 +463,27 @@ with tab_operator:
                 else:
                     st.caption("No upcoming bookings scheduled.")
 
+                if prop.get("cleaning_photo_url"):
+                    st.image(prop["cleaning_photo_url"], caption="Last cleaning photo", width=200)
+
             with card_right:
                 if task["is_clean"]:
                     if st.button("Mark Dirty", key=f"hk_{prop['id']}"):
                         db.set_cleaning_status(prop["id"], "needs_cleaning")
                         st.rerun()
                 else:
+                    clean_photo = st.file_uploader(
+                        "Cleaning photo (optional)",
+                        type=["jpg", "jpeg", "png"],
+                        key=f"clean_photo_{prop['id']}"
+                    )
                     if st.button("✓ Mark Clean", key=f"hk_{prop['id']}"):
+                        if clean_photo:
+                            img_bytes = clean_photo.read()
+                            ext = clean_photo.name.rsplit(".", 1)[-1].lower()
+                            mime = "image/png" if ext == "png" else "image/jpeg"
+                            photo_url = f"data:{mime};base64,{base64.b64encode(img_bytes).decode()}"
+                            db.set_cleaning_photo(prop["id"], photo_url)
                         db.set_cleaning_status(prop["id"], "clean")
                         st.rerun()
 
