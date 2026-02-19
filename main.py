@@ -133,7 +133,7 @@ with tab_guest:
         left, right = st.columns([2, 1])
 
         with left:
-            st.image(prop["image_url"], use_column_width=True)
+            st.image(prop["image_url"], use_container_width=True)
             st.markdown(f"### {prop['name']}")
             st.write(f"📍 {prop['location']}")
             st.write(
@@ -215,7 +215,7 @@ with tab_guest:
                 with st.container():
                     col1, col2 = st.columns([1.2, 2])
                     with col1:
-                        st.image(row["image_url"], use_column_width=True)
+                        st.image(row["image_url"], use_container_width=True)
                     with col2:
                         st.markdown(f"#### {row['name']}")
                         st.write(f"📍 {row['location']}")
@@ -285,9 +285,11 @@ with tab_owner:
                 try:
                     public_url = db.upload_property_image(pid, img_bytes)
                     db.update_property_image(pid, public_url)
-                except Exception:
-                    pass  # Image upload optional; property still created
-            st.success(f"🏡 New property created with ID: {pid}")
+                    st.success(f"🏡 New property created with ID: {pid} (image saved)")
+                except Exception as e:
+                    st.warning(f"🏡 Property created (ID: {pid}) but image upload failed: {e}\n\nMake sure the 'property-images' bucket exists in Supabase Storage and is set to Public.")
+            else:
+                st.success(f"🏡 New property created with ID: {pid}")
             st.rerun()
 
     st.markdown("### All properties")
