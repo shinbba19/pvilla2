@@ -648,41 +648,147 @@ with tab_operator:
 
 # ---------- TAB 4: PAYOUT SUMMARY ----------
 with tab_payout:
-    st.subheader("Per booking profit split")
+    st.subheader("💰 Payout Summary")
 
     bookings_df = pd.DataFrame(st.session_state.bookings)
+    props_lookup = {p["id"]: p["name"] for p in st.session_state.properties}
+
     if bookings_df.empty:
         st.warning("No bookings yet.")
     else:
-        booking_id = st.selectbox("Select booking", bookings_df["id"], key="split_booking")
-        b = bookings_df[bookings_df.id == booking_id].iloc[0]
-        expenses_total = get_expenses_for_booking(int(booking_id))
-        net, owner_amt, op_amt, platform_amt = compute_split(b["price_total"], expenses_total)
+        active_bookings = bookings_df[bookings_df["status"] != "cancelled"]
 
-        st.write(f"🏡 Property ID: {b['property_id']}")
-        st.write(f"👤 Guest: {b['guest_name']}")
-        st.write(f"📅 {b['check_in']} → {b['check_out']} ({b['nights']} nights)")
-        st.write(f"💰 Price Total: **{b['price_total']:.2f} THB**")
-        st.write(f"🧾 Total Expenses: **{expenses_total:.2f} THB**")
-        st.write(f"🏦 Net Profit: **{net:.2f} THB**")
+        # --- Build full payout rows ---
+        payout_rows = []
+        for _, row in active_bookings.iterrows():
+            exp = get_expenses_for_booking(int(row["id"]))
+            net, owner_amt, op_amt, platform_amt = compute_split(row["price_total"], exp)
+            payout_rows.append({
+                "Booking ID": row["id"],
+                "Property": props_lookup.get(row["property_id"], f"ID {row['property_id']}"),
+                "Guest": row["guest_name"],
+                "Check-in": row["check_in"],
+                "Check-out": row["check_out"],
+                "Nights": row["nights"],
+                "Revenue (THB)": row["price_total"],
+                "Expenses (THB)": exp,
+                "Net (THB)": net,
+                f"Owner {OWNER_SHARE*100:.0f}% (THB)": owner_amt,
+                f"Operator {OPERATOR_SHARE*100:.0f}% (THB)": op_amt,
+                f"Platform {PLATFORM_SHARE*100:.0f}% (THB)": platform_amt,
+                "Status": row["status"],
+            })
+        payout_df = pd.DataFrame(payout_rows)
 
-        st.markdown("### Split")
-        st.success(
-            f"- 👑 Owner ({OWNER_SHARE*100:.0f}%): **{owner_amt:.2f} THB**\n"
-            f"- 🧑‍🔧 Operator ({OPERATOR_SHARE*100:.0f}%): **{op_amt:.2f} THB**\n"
-            f"- 🏢 Platform ({PLATFORM_SHARE*100:.0f}%): **{platform_amt:.2f} THB**"
+        # ---- 1. KPI METRICS ----
+        total_revenue = payout_df["Revenue (THB)"].sum()
+        total_expenses = payout_df["Expenses (THB)"].sum()
+        total_net = payout_df["Net (THB)"].sum()
+        total_bookings = len(payout_df)
+
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Total Revenue", f"{total_revenue:,.0f} THB")
+        k2.metric("Total Expenses", f"{total_expenses:,.0f} THB")
+        k3.metric("Net Profit", f"{total_net:,.0f} THB")
+        k4.metric("Total Bookings", total_bookings)
+
+        st.markdown("---")
+
+        # ---- 2. ALL-BOOKINGS PAYOUT TABLE ----
+        st.markdown("### All Bookings – Payout Breakdown")
+        st.dataframe(payout_df, use_container_width=True)
+
+        st.markdown("---")
+
+        # ---- 3. REVENUE BY PROPERTY BAR CHART ----
+        st.markdown("### Revenue by Property")
+        chart_df = (
+            payout_df.groupby("Property")[["Revenue (THB)", "Net (THB)"]]
+            .sum()
+        )
+        st.bar_chart(chart_df)
+
+        st.markdown("---")
+
+        # ---- 4. PER-BOOKING DETAIL WITH EXPENSE MANAGEMENT ----
+        st.markdown("### Per-Booking Detail & Expenses")
+
+        booking_options = {
+            row["Booking ID"]: f"#{row['Booking ID']} – {row['Property']} ({row['Guest']})"
+            for _, row in payout_df.iterrows()
+        }
+        selected_bid = st.selectbox(
+            "Select booking",
+            list(booking_options.keys()),
+            format_func=lambda i: booking_options[i],
+            key="split_booking"
         )
 
-    st.markdown("---")
-    st.subheader("Owner & Operator totals (mock)")
+        sel = payout_df[payout_df["Booking ID"] == selected_bid].iloc[0]
+        exp_total = sel["Expenses (THB)"]
+        net_val = sel["Net (THB)"]
+        owner_val = sel[f"Owner {OWNER_SHARE*100:.0f}% (THB)"]
+        op_val = sel[f"Operator {OPERATOR_SHARE*100:.0f}% (THB)"]
+        plat_val = sel[f"Platform {PLATFORM_SHARE*100:.0f}% (THB)"]
 
+        d1, d2 = st.columns(2)
+        with d1:
+            st.write(f"🏡 **{sel['Property']}**")
+            st.write(f"👤 Guest: {sel['Guest']}")
+            st.write(f"📅 {sel['Check-in']} → {sel['Check-out']} ({sel['Nights']} nights)")
+            st.write(f"🔖 Status: **{sel['Status']}**")
+        with d2:
+            st.metric("Revenue", f"{sel['Revenue (THB)']:,.0f} THB")
+            st.metric("Expenses", f"{exp_total:,.0f} THB")
+            st.metric("Net Profit", f"{net_val:,.0f} THB")
+
+        st.markdown("#### Profit Split")
+        s1, s2, s3 = st.columns(3)
+        s1.metric(f"👑 Owner ({OWNER_SHARE*100:.0f}%)", f"{owner_val:,.0f} THB")
+        s2.metric(f"🧑‍🔧 Operator ({OPERATOR_SHARE*100:.0f}%)", f"{op_val:,.0f} THB")
+        s3.metric(f"🏢 Platform ({PLATFORM_SHARE*100:.0f}%)", f"{plat_val:,.0f} THB")
+
+        # Expense breakdown + add expense
+        expense_rows = [e for e in st.session_state.expenses if e["booking_id"] == selected_bid]
+        with st.expander(f"Expense breakdown ({len(expense_rows)} items, total {exp_total:,.0f} THB)"):
+            if expense_rows:
+                st.dataframe(pd.DataFrame(expense_rows)[["description", "amount"]], use_container_width=True)
+            else:
+                st.caption("No expenses recorded for this booking.")
+
+            st.markdown("**Add expense**")
+            ec1, ec2, ec3 = st.columns([3, 2, 1])
+            with ec1:
+                exp_desc = st.text_input("Description", key="exp_desc")
+            with ec2:
+                exp_amt = st.number_input("Amount (THB)", min_value=0.0, step=100.0, key="exp_amt")
+            with ec3:
+                st.write("")
+                st.write("")
+                if st.button("Add", key="add_expense_btn"):
+                    if exp_desc.strip() and exp_amt > 0:
+                        add_expense(int(selected_bid), exp_desc.strip(), float(exp_amt))
+                        st.rerun()
+                    else:
+                        st.warning("Enter description and amount.")
+
+        st.markdown("---")
+
+    # ---- 5. OWNER & OPERATOR TOTALS TABLE ----
+    st.markdown("### Owner Totals")
     owners = [u for u in st.session_state.users if u["role"] == "owner"]
-    operators = [u for u in st.session_state.users if u["role"] == "operator"]
-
+    owner_rows = []
     for owner in owners:
         ob, oe = summarize_for_owner(owner["id"])
-        st.info(f"👑 {owner['name']} → Bookings: {ob}, Estimated Earnings: {oe:.2f} THB")
+        owner_rows.append({"Name": owner["name"], "Bookings": ob, "Earnings (THB)": round(oe, 2)})
+    if owner_rows:
+        st.dataframe(pd.DataFrame(owner_rows), use_container_width=True)
 
+    st.markdown("### Operator Totals")
+    operators = [u for u in st.session_state.users if u["role"] == "operator"]
+    op_rows = []
     for op in operators:
         ob2, oe2 = summarize_for_operator(op["id"])
-        st.info(f"🧑‍🔧 {op['name']} → Bookings: {ob2}, Estimated Earnings: {oe2:.2f} THB")
+        op_rows.append({"Name": op["name"], "Bookings": ob2, "Earnings (THB)": round(oe2, 2)})
+    if op_rows:
+        st.dataframe(pd.DataFrame(op_rows), use_container_width=True)
