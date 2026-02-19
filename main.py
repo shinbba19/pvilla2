@@ -743,5 +743,26 @@ with tab_payout:
 
     if upcoming_rows:
         st.markdown("#### Upcoming Scheduled Payouts")
-        up_df = pd.DataFrame(upcoming_rows)[["Booking ID","Property","Guest","Check-out","Payout Date","Owner Amount (THB)","Operator Amount (THB)"]]
-        st.dataframe(up_df, use_container_width=True)
+        for row in upcoming_rows:
+            status_icon = "✅" if row["Payout Status"] == "paid" else "⏳"
+            st.markdown(
+                f"**#{row['Booking ID']} — {row['Property']}** &nbsp;·&nbsp; "
+                f"Guest: {row['Guest']}  \n"
+                f"Check-out: {row['Check-out']}  →  **Payout date: {row['Payout Date']}**"
+            )
+            uc1, uc2 = st.columns(2)
+            with uc1:
+                st.markdown(
+                    f"👑 **{row['Owner']}**  \n"
+                    f"🏦 {row['Owner Bank']}  \n"
+                    f"💰 **{row['Owner Amount (THB)']:,.0f} THB**  \n"
+                    f"{status_icon} {row['Payout Status']}"
+                )
+            with uc2:
+                st.markdown(
+                    f"🧑‍🔧 **{row['Operator']}**  \n"
+                    f"🏦 {row['Operator Bank']}  \n"
+                    f"💰 **{row['Operator Amount (THB)']:,.0f} THB**  \n"
+                    f"{status_icon} {row['Payout Status']}"
+                )
+            st.divider()
