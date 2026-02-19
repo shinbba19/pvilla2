@@ -1,3 +1,4 @@
+import base64
 import streamlit as st
 import pandas as pd
 from datetime import date
@@ -280,16 +281,14 @@ with tab_owner:
             st.image(img_bytes, width=160)
 
         if st.button("Add pool villa"):
-            pid = db.add_property(pname, ploc, int(owner_id), int(operator_id), float(nightly_rate))
             if img_bytes:
-                try:
-                    public_url = db.upload_property_image(pid, img_bytes)
-                    db.update_property_image(pid, public_url)
-                    st.success(f"🏡 New property created with ID: {pid} (image saved)")
-                except Exception as e:
-                    st.warning(f"🏡 Property created (ID: {pid}) but image upload failed: {e}\n\nMake sure the 'property-images' bucket exists in Supabase Storage and is set to Public.")
+                ext = _slot.name.rsplit(".", 1)[-1].lower()
+                mime = "image/png" if ext == "png" else "image/jpeg"
+                image_url = f"data:{mime};base64,{base64.b64encode(img_bytes).decode()}"
             else:
-                st.success(f"🏡 New property created with ID: {pid}")
+                image_url = db.DEFAULT_IMAGE
+            pid = db.add_property(pname, ploc, int(owner_id), int(operator_id), float(nightly_rate), image_url=image_url)
+            st.success(f"🏡 New property created with ID: {pid}")
             st.rerun()
 
     st.markdown("### All properties")
