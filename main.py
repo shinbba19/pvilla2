@@ -476,6 +476,54 @@ with tab_operator:
             st.divider()
 
     st.markdown("---")
+    st.markdown("### Add Expense")
+
+    op_prop_ids = {p["id"] for p in properties if p["operator_id"] == op_id}
+    op_bookings = [
+        b for b in bookings
+        if b["property_id"] in op_prop_ids and b.get("status") != "cancelled"
+    ]
+
+    if not op_bookings:
+        st.info("No bookings for your properties yet.")
+    else:
+        props_lookup_op = {p["id"]: p["name"] for p in properties}
+        op_booking_options = {
+            b["id"]: f"#{b['id']} – {props_lookup_op.get(b['property_id'], '?')} ({b['guest_name']})"
+            for b in op_bookings
+        }
+        op_exp_bid = st.selectbox(
+            "Select booking",
+            list(op_booking_options.keys()),
+            format_func=lambda i: op_booking_options[i],
+            key="op_exp_booking"
+        )
+
+        op_expense_rows = [e for e in expenses if e["booking_id"] == op_exp_bid]
+        with st.expander(f"Existing expenses ({len(op_expense_rows)} items)"):
+            if op_expense_rows:
+                st.dataframe(
+                    pd.DataFrame(op_expense_rows)[["description", "amount"]],
+                    use_container_width=True
+                )
+            else:
+                st.caption("No expenses recorded yet.")
+
+        with st.form("form_add_expense"):
+            ec1, ec2 = st.columns([3, 2])
+            with ec1:
+                exp_desc = st.text_input("Description")
+            with ec2:
+                exp_amt = st.number_input("Amount (THB)", min_value=0.0, step=100.0)
+            if st.form_submit_button("Add expense"):
+                if exp_desc.strip() and exp_amt > 0:
+                    db.add_expense(int(op_exp_bid), exp_desc.strip(), float(exp_amt))
+                    st.success("Expense added.")
+                    st.rerun()
+                else:
+                    st.warning("Enter description and amount.")
+
+    st.markdown("---")
     st.markdown("### Manage Housekeepers")
     hk_users_df     = pd.DataFrame(users)
     hk_operators_df = hk_users_df[hk_users_df["role"] == "operator"] if not hk_users_df.empty else pd.DataFrame()
@@ -637,22 +685,6 @@ with tab_payout:
                 st.dataframe(pd.DataFrame(expense_rows)[["description", "amount"]], use_container_width=True)
             else:
                 st.caption("No expenses recorded for this booking.")
-
-            st.markdown("**Add expense**")
-            ec1, ec2, ec3 = st.columns([3, 2, 1])
-            with ec1:
-                exp_desc = st.text_input("Description", key="exp_desc")
-            with ec2:
-                exp_amt = st.number_input("Amount (THB)", min_value=0.0, step=100.0, key="exp_amt")
-            with ec3:
-                st.write("")
-                st.write("")
-                if st.button("Add", key="add_expense_btn"):
-                    if exp_desc.strip() and exp_amt > 0:
-                        db.add_expense(int(selected_bid), exp_desc.strip(), float(exp_amt))
-                        st.rerun()
-                    else:
-                        st.warning("Enter description and amount.")
 
         st.markdown("---")
 
