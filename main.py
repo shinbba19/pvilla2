@@ -285,7 +285,7 @@ with tab_guest:
         st.balloons()
         if st.button("← Back to main page", key="back_after_payment"):
             st.session_state.payment_just_completed = False
-            st.experimental_rerun()
+            st.rerun()
 
     elif st.session_state.pending_payment_booking_id is not None:
         # ---- PAYMENT VIEW ----
@@ -326,11 +326,11 @@ with tab_guest:
                             break
                     st.session_state.pending_payment_booking_id = None
                     st.session_state.payment_just_completed = True
-                    st.experimental_rerun()
+                    st.rerun()
 
             if st.button("Cancel payment", key="pay_cancel"):
                 st.session_state.pending_payment_booking_id = None
-                st.experimental_rerun()
+                st.rerun()
 
     elif st.session_state.selected_property_id is not None:
         # ---- DETAIL VIEW ----
@@ -338,7 +338,7 @@ with tab_guest:
 
         if st.button("← Back to listings"):
             st.session_state.selected_property_id = None
-            st.experimental_rerun()
+            st.rerun()
 
         st.markdown("## Selected stay")
         left, right = st.columns([2, 1])
@@ -382,7 +382,7 @@ with tab_guest:
                     bid = add_booking(prop["id"], guest_name, check_in, check_out, nights)
                     st.session_state.selected_property_id = None
                     st.session_state.pending_payment_booking_id = bid
-                    st.experimental_rerun()
+                    st.rerun()
 
     else:
         # ---- LISTINGS VIEW ----
@@ -435,7 +435,7 @@ with tab_guest:
                     st.write(f"💰 **{row['nightly_rate']:.0f} THB / night**")
                     if st.button("View details", key=f"view_{row['id']}"):
                         st.session_state.selected_property_id = int(row["id"])
-                        st.experimental_rerun()
+                        st.rerun()
             st.markdown("---")
 
 # ---------- TAB 2: OWNER ----------
@@ -493,7 +493,7 @@ with tab_owner:
             if img_bytes:
                 st.session_state.property_images[pid] = [img_bytes]
             st.success(f"🏡 New property created with ID: {pid}")
-            st.experimental_rerun()
+            st.rerun()
 
     st.markdown("### All properties")
     st.dataframe(pd.DataFrame(st.session_state.properties))
@@ -569,14 +569,14 @@ with tab_operator:
                                 if p["id"] == prop["id"]:
                                     p["cleaning_status"] = "needs_cleaning"
                                     break
-                            st.experimental_rerun()
+                            st.rerun()
                     else:
                         if st.button("Mark as Clean", key=f"hk_toggle_{prop['id']}"):
                             for p in st.session_state.properties:
                                 if p["id"] == prop["id"]:
                                     p["cleaning_status"] = "clean"
                                     break
-                            st.experimental_rerun()
+                            st.rerun()
                 st.markdown("---")
 
     st.markdown("### Add new housekeeper")
